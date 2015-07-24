@@ -6,16 +6,16 @@ from twisted.internet.protocol import Factory
 from twisted.internet.task import LoopingCall
 from twisted.application.internet import TCPServer
 from twisted.plugin import IPlugin
-from twisted.python import usage, log
+from twisted.python import usage, log, logfile
 from twisted.web.client import Agent
 from zope.interface import implementer
 
 from bluefloodserver.protocols import MetricLineReceiver, MetricPickleReceiver
 from bluefloodserver.collect import MetricCollection, ConsumeFlush, BluefloodFlush
 from bluefloodserver.blueflood import BluefloodEndpoint
+from carbonforwarderlogging.forwarder_log_observer import LevelFileLogObserver
 
 from txKeystone import KeystoneAgent
-
 
 class Options(usage.Options):
     AUTH_URL = 'https://identity.api.rackspacecloud.com/v2.0/tokens'
@@ -68,6 +68,9 @@ class MetricService(Service):
 
     def startService(self):
         from twisted.internet import reactor
+        f = logfile.LogFile("carbon_forwarder.log", '/', rotateLength=1000, maxRotatedFiles=100)
+        logger = LevelFileLogObserver(f, logging.DEBUG)
+        log.addObserver(logger.emit)
 
         server = serverFromString(reactor, self.endpoint)
         log.msg('Start listening at {}'.format(self.endpoint))
