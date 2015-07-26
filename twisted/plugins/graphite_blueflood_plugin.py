@@ -29,7 +29,12 @@ class Options(usage.Options):
         ['user', 'u', '', 'Rackspace authentication username. Leave empty if no auth is required'],
         ['key', 'k', '', 'Rackspace authentication password'],
         ['auth_url', '', AUTH_URL, 'Auth URL'],
-        ['limit', '', 0, 'Blueflood json payload limit, bytes. 0 means no limit']
+        ['limit', '', 0, 'Blueflood json payload limit, bytes. 0 means no limit'],
+        ['log_dir', '', '/', 'Directory to store Carbon Forwarder logs'],
+        ['log_level', '', 'DEBUG', 'Logging level for the Carbon Forwarder log messages'],
+        ['log_rotate_length', 'rl', 10000, 'Maximum size of log file'],
+        ['max_rotated_files', 'mrf', 1000, 'Maximum number of log files']
+
     ]
 
 
@@ -65,11 +70,17 @@ class MetricService(Service):
         self.auth_url = kwargs.get('auth_url')
         self.limit = kwargs.get('limit', 0)
         self.port = None
+        self.logLevel = kwargs.get('logLevel')
+        self.rotateLength = kwargs.get('rotateLength')
+        self.maxRotatedFiles = kwargs.get('maxRotatedFiles')
+        self.log_dir = kwargs.get('log_dir')
 
     def startService(self):
         from twisted.internet import reactor
-        f = logfile.LogFile("carbon_forwarder.log", '/', rotateLength=1000, maxRotatedFiles=100)
-        logger = LevelFileLogObserver(f, logging.DEBUG)
+
+        f = logfile.LogFile("carbon_forwarder.log", self.log_dir, rotateLength=self.rotateLength, maxRotatedFiles=self.maxRotatedFiles)
+        log_level = logging.getLevelName(self.logLevel)
+        logger = LevelFileLogObserver(f, log_level)
         log.addObserver(logger.emit)
 
         server = serverFromString(reactor, self.endpoint)
@@ -124,7 +135,11 @@ class MetricServiceMaker(object):
             user=options['user'],
             key=options['key'],
             auth_url=options['auth_url'],
-            limit=options['limit']
+            limit=options['limit'],
+            log_dir=options['log_dir'],
+            logLevel=options['log_level'],
+            rotateLength=options['log_rotate_length'],
+            maxRotatedFiles=options['max_rotated_files']
         )
 
 
