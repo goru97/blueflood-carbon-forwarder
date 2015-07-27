@@ -32,8 +32,8 @@ class Options(usage.Options):
         ['limit', '', 0, 'Blueflood json payload limit, bytes. 0 means no limit'],
         ['log_dir', '', '/', 'Directory to store Carbon Forwarder logs'],
         ['log_level', '', 'DEBUG', 'Logging level for the Carbon Forwarder log messages'],
-        ['log_rotate_length', 'rl', 10000, 'Maximum size of log file'],
-        ['max_rotated_files', 'mrf', 1000, 'Maximum number of log files']
+        ['log_rotate_length', '', 10000, 'Maximum size of log file'],
+        ['max_rotated_files', '', 1000, 'Maximum number of log files']
 
     ]
 
