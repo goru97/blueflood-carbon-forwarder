@@ -6,16 +6,16 @@ from twisted.internet.protocol import Factory
 from twisted.internet.task import LoopingCall
 from twisted.application.internet import TCPServer
 from twisted.plugin import IPlugin
-from twisted.python import usage
-from twisted.logger import Logger
+from twisted.python import usage, log
 from twisted.web.client import Agent
 from zope.interface import implementer
+
 from bluefloodserver.protocols import MetricLineReceiver, MetricPickleReceiver
 from bluefloodserver.collect import MetricCollection, ConsumeFlush, BluefloodFlush
 from bluefloodserver.blueflood import BluefloodEndpoint
+
 from txKeystone import KeystoneAgent
 
-log = Logger()
 
 class Options(usage.Options):
     AUTH_URL = 'https://identity.api.rackspacecloud.com/v2.0/tokens'
@@ -41,15 +41,15 @@ class GraphiteMetricFactory(Factory):
         self._metric_collection = MetricCollection(flusher)
 
     def processMetric(self, metric, datapoint):
-        log.debug('Receive metric {} {}:{}'.format(metric, datapoint[0], datapoint[1]))
+        log.msg('Receive metric {} {}:{}'.format(metric, datapoint[0], datapoint[1]), level=logging.DEBUG)
         self._metric_collection.collect(metric, datapoint)
 
     def flushMetric(self):
         try:
-            log.debug('Sending {} metrics'.format(self._metric_collection.count()))
+            log.msg('Sending {} metrics'.format(self._metric_collection.count()), level=logging.DEBUG)
             self._metric_collection.flush()
         except Exception, e:
-            log.error(e)
+            log.err(e)
 
 
 class MetricService(Service):
@@ -71,12 +71,12 @@ class MetricService(Service):
         from twisted.internet import reactor
 
         server = serverFromString(reactor, self.endpoint)
-        log.info('Start listening at {}'.format(self.endpoint))
+        log.msg('Start listening at {}'.format(self.endpoint))
         factory = GraphiteMetricFactory.forProtocol(self.protocol_cls)
         agent = Agent(reactor)
         if self.user:
             agent = KeystoneAgent(agent, self.auth_url, (self.user, self.key))
-            log.info('Auth URL: {}, user: {}'.format(self.auth_url, self.user))
+            log.msg('Auth URL: {}, user: {}'.format(self.auth_url, self.user))
         self._setup_blueflood(factory, agent)
         self.timer = LoopingCall(factory.flushMetric)
         self.timer.start(self.flush_interval)
@@ -94,9 +94,9 @@ class MetricService(Service):
         self.timer.stop()
 
     def _setup_blueflood(self, factory, agent):
-        log.info('Send metrics to {} as {} with {} sec interval'
+        log.msg('Send metrics to {} as {} with {} sec interval'
             .format(self.blueflood_url, self.tenant, self.flush_interval))
-        log.info('Limit is {} bytes'.format(self.limit))
+        log.msg('Limit is {} bytes'.format(self.limit))
         client = BluefloodEndpoint(
             ingest_url=self.blueflood_url,
             tenant=self.tenant,
@@ -124,5 +124,6 @@ class MetricServiceMaker(object):
             auth_url=options['auth_url'],
             limit=options['limit']
         )
+
 
 serviceMaker = MetricServiceMaker()
