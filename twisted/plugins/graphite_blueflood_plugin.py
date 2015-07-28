@@ -17,6 +17,11 @@ from carbonforwarderlogging.forwarder_log_observer import LevelFileLogObserver
 
 from txKeystone import KeystoneAgent
 
+def get_log_observer():
+    f = logfile.LogFile("carbon_forwarder.log")
+    logger = LevelFileLogObserver(f, 'INFO')
+    return logger.emit
+
 class Options(usage.Options):
     AUTH_URL = 'https://identity.api.rackspacecloud.com/v2.0/tokens'
     DEFAULT_TTL = 60 * 60 * 24
@@ -77,11 +82,6 @@ class MetricService(Service):
 
     def startService(self):
         from twisted.internet import reactor
-
-        f = logfile.LogFile("carbon_forwarder.log", self.log_dir, rotateLength=self.rotateLength, maxRotatedFiles=self.maxRotatedFiles)
-        log_level = logging.getLevelName(self.logLevel)
-        logger = LevelFileLogObserver(f, log_level)
-        log.addObserver(logger.emit)
 
         server = serverFromString(reactor, self.endpoint)
         log.msg('Start listening at {}'.format(self.endpoint))
