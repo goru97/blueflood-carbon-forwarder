@@ -6,21 +6,16 @@ from twisted.internet.protocol import Factory
 from twisted.internet.task import LoopingCall
 from twisted.application.internet import TCPServer
 from twisted.plugin import IPlugin
-from twisted.python import usage, log, logfile
+from twisted.python import usage
+from twisted.logger import Logger
 from twisted.web.client import Agent
 from zope.interface import implementer
-
 from bluefloodserver.protocols import MetricLineReceiver, MetricPickleReceiver
 from bluefloodserver.collect import MetricCollection, ConsumeFlush, BluefloodFlush
 from bluefloodserver.blueflood import BluefloodEndpoint
-from carbonforwarderlogging.forwarder_log_observer import LevelFileLogObserver
-
 from txKeystone import KeystoneAgent
 
-def get_log_observer():
-    f = logfile.LogFile("carbon_forwarder.log")
-    logger = LevelFileLogObserver(f, 'INFO')
-    return logger.emit
+log = Logger()
 
 class Options(usage.Options):
     AUTH_URL = 'https://identity.api.rackspacecloud.com/v2.0/tokens'
@@ -34,11 +29,7 @@ class Options(usage.Options):
         ['user', 'u', '', 'Rackspace authentication username. Leave empty if no auth is required'],
         ['key', 'k', '', 'Rackspace authentication password'],
         ['auth_url', '', AUTH_URL, 'Auth URL'],
-        ['limit', '', 0, 'Blueflood json payload limit, bytes. 0 means no limit'],
-        ['log_dir', '', '/', 'Directory to store Carbon Forwarder logs'],
-        ['log_level', '', 'DEBUG', 'Logging level for the Carbon Forwarder log messages'],
-        ['log_rotate_length', '', 10000, 'Maximum size of log file'],
-        ['max_rotated_files', '', 1000, 'Maximum number of log files']
+        ['limit', '', 0, 'Blueflood json payload limit, bytes. 0 means no limit']
 
     ]
 
@@ -50,15 +41,15 @@ class GraphiteMetricFactory(Factory):
         self._metric_collection = MetricCollection(flusher)
 
     def processMetric(self, metric, datapoint):
-        log.msg('Receive metric {} {}:{}'.format(metric, datapoint[0], datapoint[1]), level=logging.DEBUG)
+        log.debug('Receive metric {} {}:{}'.format(metric, datapoint[0], datapoint[1]), level=logging.DEBUG)
         self._metric_collection.collect(metric, datapoint)
 
     def flushMetric(self):
         try:
-            log.msg('Sending {} metrics'.format(self._metric_collection.count()), level=logging.DEBUG)
+            log.debug('Sending {} metrics'.format(self._metric_collection.count()), level=logging.DEBUG)
             self._metric_collection.flush()
         except Exception, e:
-            log.err(e)
+            log.error(e)
 
 
 class MetricService(Service):
@@ -75,21 +66,17 @@ class MetricService(Service):
         self.auth_url = kwargs.get('auth_url')
         self.limit = kwargs.get('limit', 0)
         self.port = None
-        self.logLevel = kwargs.get('logLevel')
-        self.rotateLength = kwargs.get('rotateLength')
-        self.maxRotatedFiles = kwargs.get('maxRotatedFiles')
-        self.log_dir = kwargs.get('log_dir')
 
     def startService(self):
         from twisted.internet import reactor
 
         server = serverFromString(reactor, self.endpoint)
-        log.msg('Start listening at {}'.format(self.endpoint))
+        log.info('Start listening at {}'.format(self.endpoint))
         factory = GraphiteMetricFactory.forProtocol(self.protocol_cls)
         agent = Agent(reactor)
         if self.user:
             agent = KeystoneAgent(agent, self.auth_url, (self.user, self.key))
-            log.msg('Auth URL: {}, user: {}'.format(self.auth_url, self.user))
+            log.info('Auth URL: {}, user: {}'.format(self.auth_url, self.user))
         self._setup_blueflood(factory, agent)
         self.timer = LoopingCall(factory.flushMetric)
         self.timer.start(self.flush_interval)
@@ -107,9 +94,9 @@ class MetricService(Service):
         self.timer.stop()
 
     def _setup_blueflood(self, factory, agent):
-        log.msg('Send metrics to {} as {} with {} sec interval'
+        log.info('Send metrics to {} as {} with {} sec interval'
             .format(self.blueflood_url, self.tenant, self.flush_interval))
-        log.msg('Limit is {} bytes'.format(self.limit))
+        log.info('Limit is {} bytes'.format(self.limit))
         client = BluefloodEndpoint(
             ingest_url=self.blueflood_url,
             tenant=self.tenant,
@@ -135,11 +122,7 @@ class MetricServiceMaker(object):
             user=options['user'],
             key=options['key'],
             auth_url=options['auth_url'],
-            limit=options['limit'],
-            log_dir=options['log_dir'],
-            logLevel=options['log_level'],
-            rotateLength=options['log_rotate_length'],
-            maxRotatedFiles=options['max_rotated_files']
+            limit=options['limit']
         )
 
 
