@@ -41,12 +41,12 @@ class GraphiteMetricFactory(Factory):
         self._metric_collection = MetricCollection(flusher)
 
     def processMetric(self, metric, datapoint):
-        log.debug('Receive metric {} {}:{}'.format(metric, datapoint[0], datapoint[1]), level=logging.DEBUG)
+        log.debug('Receive metric {} {}:{}'.format(metric, datapoint[0], datapoint[1]))
         self._metric_collection.collect(metric, datapoint)
 
     def flushMetric(self):
         try:
-            log.debug('Sending {} metrics'.format(self._metric_collection.count()), level=logging.DEBUG)
+            log.debug('Sending {} metrics'.format(self._metric_collection.count()))
             self._metric_collection.flush()
         except Exception, e:
             log.error(e)
@@ -124,6 +124,5 @@ class MetricServiceMaker(object):
             auth_url=options['auth_url'],
             limit=options['limit']
         )
-
 
 serviceMaker = MetricServiceMaker()
