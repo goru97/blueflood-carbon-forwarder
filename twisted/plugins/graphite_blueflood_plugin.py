@@ -30,7 +30,6 @@ class Options(usage.Options):
         ['key', 'k', '', 'Rackspace authentication password'],
         ['auth_url', '', AUTH_URL, 'Auth URL'],
         ['limit', '', 0, 'Blueflood json payload limit, bytes. 0 means no limit']
-
     ]
 
 
